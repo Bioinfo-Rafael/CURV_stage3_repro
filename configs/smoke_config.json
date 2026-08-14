@@ -1,0 +1,16 @@
+{
+  "model_id": "trl-internal-testing/tiny-Qwen2_5_VLForConditionalGeneration",
+  "seed": 42,
+  "num_prompts": 1,
+  "num_generations": 2,
+  "max_completion_length": 16,
+  "temperature": 1.0,
+  "top_p": 0.9,
+  "top_k": 50,
+  "learning_rate": 0.0001,
+  "beta": 0.01,
+  "epsilon": 0.2,
+  "format_reward_weight": 1.0,
+  "smoke_only_reward_weight": 1.0,
+  "device_preference": "cpu"
+}
