@@ -4,11 +4,23 @@
 
 ## Quick run
 
+All four repositories now live under `/Users/cls-lab/Git/LinGu/`.
+Real-image Stage 1/2 and CLARITY smoke runs belong to the sibling CXR_LLM;
+real NIH/MIMIC MRGL runs belong to CXR_GRN. This Stage 3 remains a synthetic-image
+GRPO smoke: manual MIMIC images and Stage 1/2 teacher JSON are not automatically
+used here. The relocated `.venv` is usable; no environment recreation or model
+redownload is needed. See the existing [integrated RUN_GUIDE](../CXR_LLM/docs/RUN_GUIDE.en.md).
+
 ```bash
-cd /Users/cls-lab/Git/CURV_stage3_repro && bash scripts/run_stage3_smoke.sh
+cd /Users/cls-lab/Git/LinGu/CURV_stage3_repro && bash scripts/run_stage3_smoke.sh
 ```
 
 For the first run, create `.venv` using the [setup commands](#setup-and-run) below.
+
+The command above requires a clean official CURV checkout. If only an untracked
+root `.DS_Store` blocks the check, run `.venv/bin/python scripts/run_stage3_local_smoke.py`
+from the same directory. It temporarily preserves/restores Finder metadata without
+changing images, tracked upstream files, or existing assertions.
 
 This project executes one real optimizer step through the **CURV Stage 3 GRPO
 control flow** using mock data, while leaving the sibling official `CURV/`

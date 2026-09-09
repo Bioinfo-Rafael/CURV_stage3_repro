@@ -1,14 +1,30 @@
 # CURV Stage 3 最小 GRPO 再現
 
+Stage 1/2・CLARITY・NIH/MIMIC・unit testsを含む手順:
+[統合RUN_GUIDE](../CXR_LLM/docs/RUN_GUIDE.ja.md)。
+未追跡Finder `.DS_Store`だけがupstream clean-checkを妨げる場合は
+`.venv/bin/python scripts/run_stage3_local_smoke.py` で一時退避・実行・復元できる。
+既存assertionやtracked変更は隠さない。
+
 **日本語** | [English](README.en.md) | [中文](README.zh-CN.md) | [言語選択](README.md)
 
 ## クイック実行
 
+4 repositoriesは`/Users/cls-lab/Git/LinGu/`配下に移動しました。
+Stage 1/2・CLARITYの実画像smokeは隣接するCXR_LLM、NIH/MIMIC実画像MRGLは
+CXR_GRNが担当します。このStage 3は引き続きsynthetic画像のGRPO smokeであり、
+手動MIMIC画像やStage 1/2の教師JSONを自動的に入力するものではありません。
+移動済みの`.venv`は使用可能で、再作成やモデル再downloadは不要です。
+
 ```bash
-cd /Users/cls-lab/Git/CURV_stage3_repro && bash scripts/run_stage3_smoke.sh
+cd /Users/cls-lab/Git/LinGu/CURV_stage3_repro && bash scripts/run_stage3_smoke.sh
 ```
 
 初回のみ、下記の[セットアップ手順](#セットアップと実行)で`.venv`を作成してください。
+
+上記は公式CURVがcleanな場合のcommandです。未追跡root `.DS_Store`のみがある
+本機では、同じdirectoryから`.venv/bin/python scripts/run_stage3_local_smoke.py`
+を使用します。画像の実体・公式CURVのtracked file・既存assertionは変更しません。
 
 このプロジェクトは、隣接する公式 `CURV/` checkout を変更せず、mock data を
 使って **CURV Stage 3 GRPO control flowを実際に1 optimizer step実行**します。

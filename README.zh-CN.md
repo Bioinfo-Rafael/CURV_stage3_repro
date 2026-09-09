@@ -4,11 +4,22 @@
 
 ## 快速运行
 
+四个 repository 已移至 `/Users/cls-lab/Git/LinGu/`。
+真实图像的 Stage 1/2 和 CLARITY smoke 由相邻的 CXR_LLM 执行，
+NIH/MIMIC 真实图像 MRGL 由 CXR_GRN 执行。本 Stage 3 仍使用 synthetic 图像
+验证 GRPO，不会自动使用手动 MIMIC 图像或 Stage 1/2 教师 JSON。
+移动后的 `.venv` 可继续使用，无需重建环境或重新下载模型。
+完整流程见已有的[统一 RUN_GUIDE](../CXR_LLM/docs/RUN_GUIDE.zh-CN.md)。
+
 ```bash
-cd /Users/cls-lab/Git/CURV_stage3_repro && bash scripts/run_stage3_smoke.sh
+cd /Users/cls-lab/Git/LinGu/CURV_stage3_repro && bash scripts/run_stage3_smoke.sh
 ```
 
 首次运行时，请先按照下方的[环境配置与运行](#环境配置与运行)创建`.venv`。
+
+上述命令要求官方 CURV checkout 干净。若仅未跟踪的 root `.DS_Store` 阻碍检查，
+在同一目录运行 `.venv/bin/python scripts/run_stage3_local_smoke.py`。
+该 wrapper 临时保管并恢复 Finder metadata，不修改图像、upstream tracked 文件或既有断言。
 
 本项目使用mock data实际执行一次完整的 **CURV Stage 3 GRPO control flow**，
 同时保证不修改相邻官方`CURV/` checkout中的任何tracked file。
@@ -131,4 +142,3 @@ total-loss backward产生的gradient。
 Transformers 5.14.1会警告此unit-test checkpoint中缺少`lm_head.weight`，并在
 load时对其进行初始化。只有因为该model被明确视为wiring substitute，这种行为才
 可以接受；该事实也记录在result JSON中。
-
