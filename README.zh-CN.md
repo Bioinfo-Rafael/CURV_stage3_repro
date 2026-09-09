@@ -1,14 +1,127 @@
+# CURV Stage 3 — 单步 GRPO 最小复现
+
+本 repository **用 synthetic 图像和 tiny Qwen2.5-VL 执行生成 → reward → GRPO loss → backward → optimizer 更新**。复用官方 CURV prompt 和 format reward，通过 hard assertions 验证训练路径确实可运行。
+
+真实图像 Stage 1/2 由 [CXR_LLM](../CXR_LLM/README.md)负责，图像分类由 [CXR_GRN](../CXR_GRN/README.md)负责。这里的成功不代表真实 MIMIC 训练或医学有效性验证。
+
+[日本語](README.ja.md) | [English](README.en.md) | [简体中文](README.zh-CN.md)
+
+[功能](#capabilities) · [目录](#layout) · [运行](#run) · [实现差异](#implementation) · [原文与历史](#archive)
+
+<a id="capabilities"></a>
+
+## 1. 验证哪些内容
+
+| 步骤 | Smoke 检查 |
+|---|---|
+| 输入／生成 | 一个 synthetic 图像 prompt 生成两个 response，包含 VLM pixel 输入 |
+| Reward | 官方 format＋明确标记的 smoke-only index reward，有限值、group std > 0 |
+| GRPO | advantage、policy/reference logprob、KL、clipped objective 有限 |
+| 训练 | 非零 gradient、backward、optimizer step、parameter changed |
+| 官方代码 | 指定的 clean CURV checkout 在运行前后保持不变 |
+
+在 CPU 上执行一步，更新整个 tiny model。这与 CXR_LLM 只更新一个 norm parameter 的 smoke 不同。
+
+<a id="layout"></a>
+
+## 2. Directory 结构
+
+```text
+CURV_stage3_repro/
+├── scripts/
+│   ├── run_stage3_smoke.sh        # Python environment launcher
+│   ├── run_stage3_smoke.py        # GRPO step + hard assertions
+│   └── run_stage3_local_smoke.py  # Preserve/restore untracked Finder metadata
+├── configs/smoke_config.json     # Tiny model, generation, optimizer settings
+├── mock_data/                    # Synthetic image + prompt
+├── requirements/                 # Pinned Python dependencies
+├── outputs/stage3_smoke_result.json
+├── .venv/                        # Local environment (not committed)
+└── audit.md                      # Fidelity/dependency audit
+```
+
+<a id="run"></a>
+
+## 3. 运行方法
+
+从本 repository root 执行。已有环境可以直接复用。
+
+### 首次配置
+
+验证版本：Python 3.11、torch 2.7.1、Transformers 5.14.1、TRL 1.9.2。仅在 `.venv` 不存在时创建。
+
+```bash
+conda create -p .venv python=3.11 pip -y
+.venv/bin/python -m pip install -r requirements/requirements.txt
+```
+
+首次下载 tiny model／processor 需要网络；首次运行可移除下方 offline 变量，缓存后直接复用。不需要下载 MIMIC。
+
+### Synthetic GRPO Smoke
+
+```bash
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 bash scripts/run_stage3_smoke.sh \
+  --curv-root ../CXR_LLM/models/CURV
+```
+
+`--curv-root` 指定官方 prompt／reward 所在 checkout。由于相邻 `CURV/README.md` 已在本地编辑，当前使用相同 commit 的未修改副本 `CXR_LLM/models/CURV`。这条命令不会复制模型或数据。
+
+其他机器没有该副本时，请准备 clean 的官方 commit `f8bf7d0ad5f3c26e9336f118c78b6264887c947b` 并替换路径。不要为通过检查而 reset 或临时隐藏 tracked 修改，应指定另一份 clean checkout。只有未跟踪 root `.DS_Store` 是唯一障碍时，才用已有 `run_stage3_local_smoke.py --curv-root <path>` 临时保管并恢复 Finder metadata。
+
+### 成功条件与输出
+
+要求退出 code 0，并通过全部断言，包括 `GENERATION OK`、`REWARD STD > 0`、`GRPO LOSS FINITE`、`BACKWARD OK`、`OPTIMIZER STEP OK`、`PARAMETER CHANGED`、`UPSTREAM UNMODIFIED`。
+
+结果写入 [outputs/stage3_smoke_result.json](outputs/stage3_smoke_result.json)。synthetic 图像不存在时以确定性方式生成。policy loss=0 不一定意味着 gradient=0，因此单独验证 policy-only 和 total-loss gradient。
+
+<a id="implementation"></a>
+
+## 4. 实现差异与范围限制
+
+| 组件 | 官方 recipe／完整实验 | 本 smoke |
+|---|---|---|
+| Model／输入 | Stage 2 checkpoint＋真实数据 | Tiny Qwen2.5-VL＋一个 synthetic prompt |
+| 优化实现 | ms-swift GRPO recipe | TRL 1.9.2＋观测 instrumentation |
+| Reward | Format＋CheXbert／RadGraph 等 | 官方 format＋smoke-only variance reward |
+| 生成数／长度 | 8 次，最长 1,536 tokens | 2 次，最长 16 tokens |
+| 更新 | 分布式完整 schedule，学习率 `1e-7` | CPU 一步，`1e-4` |
+| 官方 source | 参考实现 | 不修改，保留严格 clean／unchanged 断言 |
+
+记录缺失 `lm_head.weight` 的初始化 warning。model 标记为 `MODEL MOCK / SMALL SUBSTITUTE`，辅助 reward 标记为 `SMOKE-ONLY REWARD; NOT PART OF CURV`。医学 reward 的依赖／checkpoint、真实图像 messages 和正式 Stage 2 model 齐备前，不应声称完整复现。
+
+[审计记录](audit.md)与末尾表格保留了 library 尝试、替代范围和实验配置。全部 repository 的流程见已有[统一 RUN_GUIDE](../CXR_LLM/docs/RUN_GUIDE.zh-CN.md#stage3)。
+
+<a id="archive"></a>
+
+## 附录：既有原文、全部断言、配置比较与迁移历史
+
+以下原样保留整理前的完整 README。绝对路径和旧默认启动示例属于历史记录；当前请使用上方明确指定 checkout 的运行方式。
+
+<details>
+<summary>整理前のREADME全文 / Previous README (verbatim) / 原README全文</summary>
+
 # CURV Stage 3 最小 GRPO 复现
 
 [日本語](README.ja.md) | [English](README.en.md) | **中文** | [语言选择](README.md)
 
 ## 快速运行
 
+四个 repository 已移至 `/Users/cls-lab/Git/LinGu/`。
+真实图像的 Stage 1/2 和 CLARITY smoke 由相邻的 CXR_LLM 执行，
+NIH/MIMIC 真实图像 MRGL 由 CXR_GRN 执行。本 Stage 3 仍使用 synthetic 图像
+验证 GRPO，不会自动使用手动 MIMIC 图像或 Stage 1/2 教师 JSON。
+移动后的 `.venv` 可继续使用，无需重建环境或重新下载模型。
+完整流程见已有的[统一 RUN_GUIDE](../CXR_LLM/docs/RUN_GUIDE.zh-CN.md)。
+
 ```bash
-cd /Users/cls-lab/Git/CURV_stage3_repro && bash scripts/run_stage3_smoke.sh
+cd /Users/cls-lab/Git/LinGu/CURV_stage3_repro && bash scripts/run_stage3_smoke.sh
 ```
 
 首次运行时，请先按照下方的[环境配置与运行](#环境配置与运行)创建`.venv`。
+
+上述命令要求官方 CURV checkout 干净。若仅未跟踪的 root `.DS_Store` 阻碍检查，
+在同一目录运行 `.venv/bin/python scripts/run_stage3_local_smoke.py`。
+该 wrapper 临时保管并恢复 Finder metadata，不修改图像、upstream tracked 文件或既有断言。
 
 本项目使用mock data实际执行一次完整的 **CURV Stage 3 GRPO control flow**，
 同时保证不修改相邻官方`CURV/` checkout中的任何tracked file。
@@ -132,3 +245,4 @@ Transformers 5.14.1会警告此unit-test checkpoint中缺少`lm_head.weight`，�
 load时对其进行初始化。只有因为该model被明确视为wiring substitute，这种行为才
 可以接受；该事实也记录在result JSON中。
 
+</details>

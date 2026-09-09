@@ -24,7 +24,11 @@ from typing import Any
 import torch
 from datasets import Dataset
 from PIL import Image, ImageDraw
-from transformers import AutoModelForMultimodalLM, AutoProcessor, set_seed
+from transformers import (
+    AutoProcessor,
+    Qwen2_5_VLForConditionalGeneration,
+    set_seed,
+)
 from trl import GRPOConfig, GRPOTrainer
 
 
@@ -280,9 +284,16 @@ def main() -> None:
     dataset = Dataset.from_list([{"prompt": prompt_messages, "image": image}])
     print("DATA LOAD OK")
 
-    processor = AutoProcessor.from_pretrained(config["model_id"])
+    processor = AutoProcessor.from_pretrained(
+        config["model_id"],
+        trust_remote_code=True,
+    )
     print("PROCESSOR OK")
-    model = AutoModelForMultimodalLM.from_pretrained(config["model_id"], dtype=torch.float32)
+    model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+        config["model_id"],
+        dtype=torch.float32,
+        trust_remote_code=True,
+    )
     print("MODEL LOAD OK")
 
     official_format = load_official_format_reward(curv_root)
